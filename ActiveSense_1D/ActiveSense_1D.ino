@@ -1,24 +1,24 @@
 /*
  * ----------------------------------------------------------------------------
  * "THE BEER-WARE LICENSE" (Revision 42):
- * Ryan Westcott <ryan@westcott.email> wrote this file.  As long as you retain 
- * this notice you can do whatever you want with this stuff. If we meet some day, 
+ * Ryan Westcott <ryan@westcott.email> wrote this file.  As long as you retain
+ * this notice you can do whatever you want with this stuff. If we meet some day,
  * and you think this stuff is worth it, you can buy me a beer in return.
  * ----------------------------------------------------------------------------
- * 
+ *
  * PINS:
  * 2 - sensor
  * 4 - input
  * 5 - output
- * 
- * Stable release: 1
- * Overall Build:  25
+ *
  *
  */
 
 #include <Servo.h>
 
 Servo output;
+
+int rangeStart = 300; // The distance in CM where the compensation starts
 
 const int sensorPin = 2;
 const int inputPin = 6;
@@ -41,6 +41,15 @@ void loop() {
   // See how far away we are from the nearest obstacle
   distanceCM = distance(sensorPin);
 
+  // Make sure we dont have any bad data
+  if (distanceCM > lastDistance + 10){
+    distanceCM += 10;
+  }else if (distanceCM < lastDistance - 10) {
+    distanceCM -= 10;
+  }
+  
+  int lastDistance = distanceCM;
+
   // See what our current user input is
   rawInVal = pulseIn(inputPin, HIGH, 25000);
   int in = map(rawInVal, 1100, 1900, -100, 100);
@@ -49,13 +58,10 @@ void loop() {
   }
 
   // Run the compensation algorithim and output our new data
-  //outputVal = map(compensateVal(), -100, 100, 0, 255); //25, 160
   outputVal = compensateVal();
-  //output.write(map(outputVal, 0, 255, 25, 160);
-  output.write(map(outputVal, -100, 100, 27, 157));
+  output.write(map(outputVal, -100, 100, 27, 157)); //25, 160
 
   // Log some data
-
   Serial.print("Compensate Val: ");
   Serial.print(compensateVal());
   Serial.print(", Distance:");
@@ -71,8 +77,8 @@ void loop() {
 
 int compensateVal() {
   int val;
-  if (distanceCM < 200) { // If we are close to an obstical, take over control
-    val = map(distanceCM, 0, 200, 100, 0);
+  if (distanceCM < rangeStart) { // If we are close to an obstical, take over control
+    val = map(distanceCM, 0, rangeStart, 100, 0);
   } else {
     val = speedVal;
   }
@@ -94,12 +100,6 @@ int distance(int pin) {
 
   cm = microsecondsToCentimeters(duration);
   return cm;
-}
-
-long microsecondsToInches(long microseconds) {
-  // Speed of sound = 73.7 microseconds per inch
-  // Sound must travel there and back so devide by 2
-  return microseconds / 74 / 2;
 }
 
 long microsecondsToCentimeters(long microseconds) {
